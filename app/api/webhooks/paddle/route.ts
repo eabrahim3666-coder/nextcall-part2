@@ -60,14 +60,13 @@ export async function POST(request: Request) {
         const businessType = customData.business_type || "General";
         const serviceArea = customData.service_area || "Unknown";
         const refCode = customData.ref || null;
-
-        let twilioSubAccountSid = "DEV_MOCK_SUBACCOUNT_SID";
-        let twilioPhoneNumber = "+15555555555";
-
-        // DEV MODE: Twilio Provisioning Disabled to save credits
-        /*
+        
+        let twilioSubAccountSid = "PROVISIONING_FAILED";
+        let twilioPhoneNumber = "PROVISIONING_FAILED";
+/* 
         try {
           const subAccount = await twilioClient.api.accounts.create({ friendlyName: businessName });
+
           const availableNumbers = await twilioClient.availablePhoneNumbers('US').local.list({ limit: 1 });
           
           if (availableNumbers.length === 0) throw new Error("No available Twilio numbers");
@@ -87,8 +86,7 @@ export async function POST(request: Request) {
         } catch (twilioError) {
           console.error("TWILIO ERROR (Marking user active anyway):", twilioError);
         }
-        */
-
+*/
         const planType = customData.plan || 'standard';
 
         let minutesLimit;
