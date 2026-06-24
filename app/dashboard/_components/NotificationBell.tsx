@@ -1,0 +1,149 @@
+"use client";
+
+import { useState, useEffect } from "react";
+
+type Notification = {
+    _id: string;
+    type: string;
+    title: string;
+    message: string;
+    read: boolean;
+    created_at: string;
+};
+
+const TYPE_STYLES: Record<string, { badge: string; badgeText: string }> = {
+    hot_lead: { badge: "bg-rose-500/20 text-rose-300", badgeText: "HOT" },
+    emergency: { badge: "bg-rose-500/20 text-rose-300", badgeText: "URGENT" },
+    appointment: { badge: "bg-emerald-500/20 text-emerald-300", badgeText: "NEW" },
+    missed_call: { badge: "bg-amber-500/20 text-amber-300", badgeText: "MISSED" },
+    minutes_80: { badge: "bg-amber-500/20 text-amber-300", badgeText: "WARNING" },
+    minutes_90: { badge: "bg-rose-500/20 text-rose-300", badgeText: "ALERT" },
+    minutes_100: { badge: "bg-rose-500/20 text-rose-300", badgeText: "LIMIT" },
+};
+
+export default function NotificationBell() {
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [open, setOpen] = useState(false);
+
+    const fetchNotifications = async () => {
+        try {
+            const res = await fetch("/api/notifications");
+            const data = await res.json();
+            setNotifications(data.notifications || []);
+            setUnreadCount(data.unreadCount || 0);
+        } catch {
+            // silently fail
+        }
+    };
+
+    useEffect(() => {
+        fetchNotifications();
+
+        // 1. Fetch when the user comes back to the app/tab (Crucial for Play Store/PWA)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchNotifications();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        // 2. Gentle background refresh (2 mins instead of 30s to save battery)
+        const interval = setInterval(fetchNotifications, 120000);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            clearInterval(interval);
+        };
+    }, []);
+
+    const markAllRead = async () => {
+        try {
+            await fetch("/api/notifications", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "mark_all_read" }),
+            });
+            setUnreadCount(0);
+            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        } catch {
+            // silently fail
+        }
+    };
+
+    const timeAgo = (dateStr: string) => {
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return "Just now";
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return `${hrs}h ago`;
+        const days = Math.floor(hrs / 24);
+        return `${days}d ago`;
+    };
+
+    return (
+        <div className="relative">
+            <button
+                onClick={() => {
+                    if (!open) fetchNotifications(); // Refresh list when opening
+                    setOpen(!open);
+                    if (!open && unreadCount > 0) markAllRead();
+                }}
+                className="relative p-2 text-neutral-400 hover:text-white transition-colors"
+            >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-500 rounded-full text-[9px] font-bold flex items-center justify-center text-white">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                )}
+            </button>
+
+            {open && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-[#0a0a0a] border border-white/[0.08] rounded-2xl shadow-2xl z-50 overflow-hidden">
+                    <div className="flex items-center justify-between p-4 border-b border-white/[0.06]">
+                        <span className="text-xs font-semibold text-white">Notifications</span>
+                        {unreadCount > 0 && (
+                            <button onClick={markAllRead} className="text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors">
+                                Mark all read
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                            <div className="p-6 text-center">
+                                <p className="text-xs text-neutral-600">No notifications yet</p>
+                            </div>
+                        ) : (
+                            notifications.map((n) => {
+                                const style = TYPE_STYLES[n.type] || { badge: "bg-neutral-500/20 text-neutral-300", badgeText: "INFO" };
+                                return (
+                                    <div
+                                        key={n._id}
+                                        className={`p-4 border-b border-white/[0.04] ${!n.read ? "bg-white/[0.02]" : ""}`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${style.badge} flex-shrink-0 mt-0.5`}>{style.badgeText}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-xs font-medium text-white">{n.title}</span>
+                                                    <span className="text-[9px] text-neutral-600 flex-shrink-0">{timeAgo(n.created_at)}</span>
+                                                </div>
+                                                <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed line-clamp-2">{n.message}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

@@ -1,0 +1,90 @@
+import { NextResponse } from 'next/server';
+import { businessesCollection } from '@/lib/astra';
+
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get('code');
+    const state = searchParams.get('state'); // This is the Clerk userId we passed in the auth route
+
+    if (!code || !state) {
+        return NextResponse.redirect(new URL('/dashboard/settings?focus=integrations&meta_error=missing_params', request.url));
+    }
+
+    const appId = process.env.META_APP_ID;
+    const appSecret = process.env.META_APP_SECRET;
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/integrations/meta/callback`;
+
+    try {
+        // 1. Exchange the code for a short-lived User Access Token
+        const tokenRes = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&redirect_uri=${redirectUri}&client_secret=${appSecret}&code=${code}`);
+        const tokenData = await tokenRes.json();
+
+        if (tokenData.error) {
+            console.error("Meta Token Exchange Error:", tokenData.error);
+            throw new Error(tokenData.error.message);
+        }
+
+        const shortLivedToken = tokenData.access_token;
+
+        // 2. Exchange the short-lived token for a long-lived User Access Token (lasts 60 days)
+        const longLivedRes = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedToken}`);
+        const longLivedData = await longLivedRes.json();
+
+        if (longLivedData.error) {
+            console.error("Meta Long-Lived Token Error:", longLivedData.error);
+            throw new Error(longLivedData.error.message);
+        }
+
+        const longLivedToken = longLivedData.access_token;
+
+        // 3. Get the User's Pages (We need the Page Access Token to read/send messages)
+        const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${longLivedToken}`);
+        const pagesData = await pagesRes.json();
+
+        if (pagesData.error) {
+            console.error("Meta Pages Fetch Error:", pagesData.error);
+            throw new Error(pagesData.error.message);
+        }
+
+        if (!pagesData.data || pagesData.data.length === 0) {
+            return NextResponse.redirect(new URL('/dashboard/settings?focus=integrations&meta_error=no_pages', request.url));
+        }
+
+        // 4. Grab the first Page's token and ID (For V1, we assume they connect their primary page)
+        const page = pagesData.data[0];
+        const pageAccessToken = page.access_token;
+        const pageId = page.id;
+
+        // 5. Get the Instagram Business Account linked to this Page (Optional but recommended for IG DMs)
+        let igBusinessId = null;
+        try {
+            const igRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}?fields=instagram_business_account&access_token=${pageAccessToken}`);
+            const igData = await igRes.json();
+            if (igData.instagram_business_account) {
+                igBusinessId = igData.instagram_business_account.id;
+            }
+        } catch (e) {
+            console.log("No IG account linked, skipping IG ID.");
+        }
+
+        // 6. Save to AstraDB (Force pageId to String to prevent DB type mismatch lookups)
+        await businessesCollection.updateOne(
+            { business_id: state },
+            {
+                $set: {
+                    meta_page_access_token: pageAccessToken,
+                    meta_page_id: String(pageId), 
+                    meta_ig_business_id: igBusinessId ? String(igBusinessId) : null,
+                    updated_at: new Date().toISOString()
+                }
+            }
+        );
+
+        // 7. Redirect back to settings with success message
+        return NextResponse.redirect(new URL('/dashboard/settings?focus=integrations&meta_success=true', request.url));
+
+    } catch (error: any) {
+        console.error("Meta Callback Error:", error.message);
+        return NextResponse.redirect(new URL(`/dashboard/settings?focus=integrations&meta_error=${encodeURIComponent(error.message)}`, request.url));
+    }
+}
