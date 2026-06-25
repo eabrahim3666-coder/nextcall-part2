@@ -10,12 +10,19 @@ export async function POST(request: Request) {
       ? 'https://sandbox-api.paddle.com' 
       : 'https://api.paddle.com';
       
+    // --- ADDED DEBUG LOGS HERE ---
+    console.log("Using API base:", paddleApiBase);
+    console.log("Key prefix:", process.env.PADDLE_API_KEY?.substring(0, 10));
+    // ------------------------------
+
     const response = await fetch(`${paddleApiBase}/transactions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.PADDLE_API_KEY}`,
         'Content-Type': 'application/json'
       },
+      body: JSON.stringify(body) // Ensure body is passed or adjust as per your needs
+    }); // Fixed missing closing block for fetch here
 
     const data = await response.json();
 
