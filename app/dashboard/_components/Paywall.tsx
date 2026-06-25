@@ -1,114 +1,55 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function Paywall() {
     const { user } = useUser();
     const [loading, setLoading] = useState<"trial" | "standard" | "premium" | null>(null);
 
-    // Load Paddle.js script when the component mounts
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            const script = document.createElement("script");
-            script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
-            script.async = true;
-            script.onload = () => {
-                const Paddle = (window as any).Paddle;
-                if (Paddle) {
-                    Paddle.Initialize({ token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN });
-                    console.log("Paddle initialized successfully");
-                }
-            };
-            document.body.appendChild(script);
-        }
-    }, []);
-
     const handleCheckout = async (plan: "trial" | "standard" | "premium") => {
         setLoading(plan);
 
+        const priceIdMap = {
+            trial: process.env.NEXT_PUBLIC_PADDLE_TRIAL_PRICE_ID,
+            standard: process.env.NEXT_PUBLIC_PADDLE_STANDARD_PRICE_ID,
+            premium: process.env.NEXT_PUBLIC_PADDLE_PREMIUM_PRICE_ID
+        };
 
-        if (!(window as any).Paddle) {
-            alert("Payment system is still loading. Please wait a few seconds and try again.");
+        const priceId = priceIdMap[plan];
+
+        if (!priceId) {
+            alert("Pricing configuration missing for this plan. Check your .env.local file.");
             setLoading(null);
             return;
         }
 
         try {
-            const priceIdMap = {
-                trial: process.env.NEXT_PUBLIC_PADDLE_TRIAL_PRICE_ID,
-                standard: process.env.NEXT_PUBLIC_PADDLE_STANDARD_PRICE_ID,
-                premium: process.env.NEXT_PUBLIC_PADDLE_PREMIUM_PRICE_ID
-            };
-
-            const res = await fetch('/api/checkout/paddle', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const res = await fetch("/api/checkout/paddle", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    priceId: priceIdMap[plan],
-                    quantity: 1,
+                    priceId,
                     clerk_user_id: user?.id,
                     business_name: user?.firstName || "New Business",
-                    plan: plan
-                })
+                    plan
+                }),
             });
 
             const data = await res.json();
 
-            if (!res.ok || !data.url) {
-                alert("Failed to start checkout: " + JSON.stringify(data.error));
-                setLoading(null);
-                return;
+            if (data.url) {
+                // Redirect straight to Paddle's hosted checkout page
+                window.location.href = data.url;
+            } else {
+                alert("Backend Error: " + JSON.stringify(data));
             }
-
-            // Redirect straight to Paddle's hosted checkout page
-            window.location.href = data.url;
-        } catch (err) {
-            console.error("Checkout error:", err);
-            alert("Checkout error: " + err);
+        } catch (error: any) {
+            alert("Network Error: " + error.message);
         } finally {
             setLoading(null);
         }
     };
-
-
-
-    // const handleCheckout = async (plan: "trial" | "standard" | "premium") => {
-    //     setLoading(plan);
-
-    //     const priceIdMap = {
-    //         trial: process.env.NEXT_PUBLIC_PADDLE_TRIAL_PRICE_ID,
-    //         standard: process.env.NEXT_PUBLIC_PADDLE_STANDARD_PRICE_ID,
-    //         premium: process.env.NEXT_PUBLIC_PADDLE_PREMIUM_PRICE_ID
-    //     };
-
-    //     const priceId = priceIdMap[plan];
-
-    //     try {
-    //         const res = await fetch("/api/checkout/paddle", {
-    //             method: "POST",
-    //             headers: { "Content-Type": "application/json" },
-    //             body: JSON.stringify({
-    //                 priceId,
-    //                 clerk_user_id: user?.id,
-    //                 business_name: user?.firstName || "New Business",
-    //                 plan
-    //             }),
-    //         });
-
-    //         const data = await res.json();
-
-    //         if (data.url) {
-    //             window.location.href = data.url;
-    //         } else {
-    //             alert("Backend Error: " + JSON.stringify(data));
-    //         }
-    //     } catch (error: any) {
-    //         alert("Network Error: " + error.message);
-    //     } finally {
-    //         setLoading(null);
-    //     }
-    // };
 
     return (
         <div className="min-h-[80vh] flex items-center justify-center px-4">
