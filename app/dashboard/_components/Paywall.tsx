@@ -1,17 +1,33 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Paywall() {
     const { user } = useUser();
     const [loading, setLoading] = useState<"trial" | "standard" | "premium" | null>(null);
 
+    // Load Paddle.js script when the component mounts
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const script = document.createElement("script");
+            script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
+            script.async = true;
+            script.onload = () => {
+                const Paddle = (window as any).Paddle;
+                if (Paddle) {
+                    Paddle.Initialize({ token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN });
+                    console.log("Paddle initialized successfully");
+                }
+            };
+            document.body.appendChild(script);
+        }
+    }, []);
 
     const handleCheckout = async (plan: "trial" | "standard" | "premium") => {
         setLoading(plan);
 
-        // চেক করা হচ্ছে Paddle লোড হয়েছে কিনা
+
         if (!(window as any).Paddle) {
             alert("Payment system is still loading. Please wait a few seconds and try again.");
             setLoading(null);
