@@ -9,8 +9,7 @@ export async function POST(request: Request) {
       ? 'https://sandbox-api.paddle.com' 
       : 'https://api.paddle.com';
       
-    // Using Payment Links API to guarantee we get a hosted URL back
-    const response = await fetch(`${paddleApiBase}/payment-links`, {
+    const response = await fetch(`${paddleApiBase}/transactions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.PADDLE_API_KEY}`,
@@ -22,6 +21,9 @@ export async function POST(request: Request) {
           clerk_user_id: body.clerk_user_id,
           business_name: body.business_name,
           plan: body.plan
+        },
+        checkout: {
+          url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?paddle=success`
         }
       })
     });
@@ -30,11 +32,11 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       console.error("Paddle API Error:", data.error);
-      return NextResponse.json({ error: data.error || "Failed to create Paddle link" }, { status: 400 });
+      return NextResponse.json({ error: data.error || "Failed to create Paddle checkout" }, { status: 400 });
     }
 
-    // Payment Links API returns the URL directly in data.data.url
-    return NextResponse.json({ url: data.data.url });
+    // Return the hosted checkout URL to the frontend
+    return NextResponse.json({ url: data.data.checkout.url });
 
   } catch (error) {
     console.error("Checkout API Error:", error);
