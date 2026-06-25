@@ -9,6 +9,10 @@ export async function POST(request: Request) {
       ? 'https://sandbox-api.paddle.com' 
       : 'https://api.paddle.com';
       
+    // Safely construct the URL, removing any trailing slashes to prevent invalid_url
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://nextcall-part2.vercel.app').replace(/\/$/, '');
+    const successUrl = `${appUrl}/dashboard?paddle=success`;
+      
     const response = await fetch(`${paddleApiBase}/transactions`, {
       method: 'POST',
       headers: {
@@ -23,7 +27,7 @@ export async function POST(request: Request) {
           plan: body.plan
         },
         checkout: {
-          url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?paddle=success`
+          url: successUrl
         }
       })
     });
@@ -35,8 +39,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: data.error || "Failed to create Paddle checkout" }, { status: 400 });
     }
 
-    // Return the hosted checkout URL to the frontend
-    return NextResponse.json({ url: data.data.checkout.url });
+    // Return the hosted checkout URL to the frontend and set the race-condition cookie
+    const res = NextResponse.json({ url: data.data.checkout.url });
+    res.cookies.set('paddle_redirect', 'true', { path: '/', maxAge: 60 });
+    return res;
 
   } catch (error) {
     console.error("Checkout API Error:", error);
