@@ -44,7 +44,13 @@ export default function Paywall() {
             const res = await fetch('/api/checkout/paddle', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ priceId: priceIdMap[plan], quantity: 1 })
+                body: JSON.stringify({
+                    priceId: priceIdMap[plan],
+                    quantity: 1,
+                    clerk_user_id: user?.id,
+                    business_name: user?.firstName || "New Business",
+                    plan: plan
+                })
             });
 
             const data = await res.json();

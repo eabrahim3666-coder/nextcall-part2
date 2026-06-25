@@ -3,20 +3,12 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    // Destructure the priceId and quantity sent from your frontend
-    const { priceId, quantity = 1 } = body; 
 
-    // Call Paddle API to generate a transaction/checkout link
     // Automatically use Sandbox API if the sandbox key is present
     const paddleApiBase = process.env.PADDLE_API_KEY?.startsWith('pdl_sdbx_') 
       ? 'https://sandbox-api.paddle.com' 
       : 'https://api.paddle.com';
       
-    // Debug logs to monitor your keys in Vercel logs
-    console.log("Using API base:", paddleApiBase);
-    console.log("Key prefix:", process.env.PADDLE_API_KEY?.substring(0, 10));
-
-    // Send the structured payload that Paddle expects
     const response = await fetch(`${paddleApiBase}/transactions`, {
       method: 'POST',
       headers: {
@@ -24,9 +16,12 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        items: [
-          { price_id: priceId, quantity }
-        ]
+        items: [{ price_id: body.priceId, quantity: 1 }],
+        custom_data: {
+          clerk_user_id: body.clerk_user_id,
+          business_name: body.business_name,
+          plan: body.plan
+        }
       })
     });
 
@@ -37,8 +32,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: data.error || "Failed to create Paddle checkout" }, { status: 400 });
     }
 
-    // চেইঞ্জড: উন্ডো ওভারলে চালুর জন্য এখানে url এর বদলে transactionId পাঠানো হচ্ছে
-    return NextResponse.json({ transactionId: data.data?.id });
+    // Return the transactionId to the frontend so Paddle.js can open the overlay
+    return NextResponse.json({ 
+      transactionId: data.data.id,
+      url: data.data.checkout.url 
+    });
 
   } catch (error) {
     console.error("Checkout API Error:", error);
