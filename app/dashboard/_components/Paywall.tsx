@@ -1,14 +1,36 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Paywall() {
     const { user } = useUser();
     const [loading, setLoading] = useState<"trial" | "standard" | "premium" | null>(null);
 
-    const handleCheckout = async (plan: "trial" | "standard" | "premium") => {
+    useEffect(() => {
+        if (typeof window !== "undefined" && !(window as any).Paddle) {
+            const script = document.createElement("script");
+            script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
+            script.async = true;
+            script.onload = () => {
+                const Paddle = (window as any).Paddle;
+                if (Paddle) {
+                    Paddle.Initialize({ token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN });
+                }
+            };
+            document.body.appendChild(script);
+        }
+    }, []);
+
+    const handleCheckout = (plan: "trial" | "standard" | "premium") => {
         setLoading(plan);
+        const Paddle = (window as any).Paddle;
+
+        if (!Paddle) {
+            alert("Payment system is still loading. Please wait a moment and try again.");
+            setLoading(null);
+            return;
+        }
 
         const priceIdMap = {
             trial: process.env.NEXT_PUBLIC_PADDLE_TRIAL_PRICE_ID,
@@ -19,36 +41,24 @@ export default function Paywall() {
         const priceId = priceIdMap[plan];
 
         if (!priceId) {
-            alert("Pricing configuration missing for this plan. Check your .env.local file.");
+            alert("Pricing configuration missing. Check Vercel env vars.");
             setLoading(null);
             return;
         }
 
-        try {
-            const res = await fetch("/api/checkout/paddle", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    priceId,
-                    clerk_user_id: user?.id,
-                    business_name: user?.firstName || "New Business",
-                    plan
-                }),
-            });
-
-            const data = await res.json();
-
-            if (data.url) {
-                // Redirect straight to Paddle's hosted checkout page
-                window.location.href = data.url;
-            } else {
-                alert("Backend Error: " + JSON.stringify(data));
+        Paddle.Checkout.open({
+            items: [{ priceId: priceId, quantity: 1 }],
+            customData: {
+                clerk_user_id: user?.id,
+                business_name: user?.firstName || "New Business",
+                plan: plan
+            },
+            settings: {
+                successUrl: `${window.location.origin}/dashboard?paddle=success`
             }
-        } catch (error: any) {
-            alert("Network Error: " + error.message);
-        } finally {
-            setLoading(null);
-        }
+        });
+
+        setLoading(null);
     };
 
     return (
