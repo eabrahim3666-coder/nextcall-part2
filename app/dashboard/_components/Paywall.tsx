@@ -55,26 +55,14 @@ export default function Paywall() {
 
             const data = await res.json();
 
-            if (!res.ok || !data.transactionId) {
+            if (!res.ok || !data.url) {
                 alert("Failed to start checkout: " + JSON.stringify(data.error));
                 setLoading(null);
                 return;
             }
 
-            const Paddle = (window as any).Paddle;
-            if (!Paddle || !Paddle.Checkout) {
-                alert("Paddle failed to initialize properly. Please refresh and try again.");
-                setLoading(null);
-                return;
-            }
-
-            Paddle.Checkout.open({
-                transactionId: data.transactionId,
-                settings: {
-                    displayMode: "overlay",
-                    theme: "dark"
-                }
-            });
+            // Redirect straight to Paddle's hosted checkout page
+            window.location.href = data.url;
         } catch (err) {
             console.error("Checkout error:", err);
             alert("Checkout error: " + err);
