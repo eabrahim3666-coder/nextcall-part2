@@ -1,16 +1,38 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useState } from "react";
+import { useState, useEffect } from "react"; // চেইঞ্জড: useEffect ইমপোর্ট করা হয়েছে
 
 export default function Paywall() {
     const { user } = useUser();
     const [loading, setLoading] = useState<"trial" | "standard" | "premium" | null>(null);
 
-
+    // ফিক্স: পেজ লোড হওয়ার সাথে সাথে Paddle.js স্ক্রিপ্ট ব্রাউজারে ইনজেক্ট হবে
+    useEffect(() => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
+        script.async = true;
+        script.onload = () => {
+            const Paddle = (window as any).Paddle;
+            if (Paddle) {
+                // আপনার Paddle Client Token এখানে পাস করুন
+                Paddle.Initialize({ token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN });
+                console.log("✅ Paddle initialized successfully");
+            }
+        };
+        document.body.appendChild(script);
+    }, []);
 
     const handleCheckout = async (plan: "trial" | "standard" | "premium") => {
         setLoading(plan);
+
+        // চেক করা হচ্ছে Paddle লোড হয়েছে কিনা
+        if (!(window as any).Paddle) {
+            alert("Payment system is still loading. Please wait a few seconds and try again.");
+            setLoading(null);
+            return;
+        }
+
         try {
             const priceIdMap = {
                 trial: process.env.NEXT_PUBLIC_PADDLE_TRIAL_PRICE_ID,
@@ -32,7 +54,14 @@ export default function Paywall() {
                 return;
             }
 
-            (window as any).Paddle.Checkout.open({
+            const Paddle = (window as any).Paddle;
+            if (!Paddle || !Paddle.Checkout) {
+                alert("Paddle failed to initialize properly. Please refresh and try again.");
+                setLoading(null);
+                return;
+            }
+
+            Paddle.Checkout.open({
                 transactionId: data.transactionId,
                 settings: {
                     displayMode: "overlay",
@@ -46,49 +75,6 @@ export default function Paywall() {
             setLoading(null);
         }
     };
-
-
-
-
-
-
-
-    // const handleCheckout = async (plan: "trial" | "standard" | "premium") => {
-    //     setLoading(plan);
-
-    //     const priceIdMap = {
-    //         trial: process.env.NEXT_PUBLIC_PADDLE_TRIAL_PRICE_ID,
-    //         standard: process.env.NEXT_PUBLIC_PADDLE_STANDARD_PRICE_ID,
-    //         premium: process.env.NEXT_PUBLIC_PADDLE_PREMIUM_PRICE_ID
-    //     };
-
-    //     const priceId = priceIdMap[plan];
-
-    //     try {
-    //         const res = await fetch("/api/checkout/paddle", {
-    //             method: "POST",
-    //             headers: { "Content-Type": "application/json" },
-    //             body: JSON.stringify({
-    //                 priceId,
-    //                 clerk_user_id: user?.id,
-    //                 business_name: user?.firstName || "New Business",
-    //                 plan
-    //             }),
-    //         });
-
-    //         const data = await res.json();
-
-    //         if (data.url) {
-    //             window.location.href = data.url;
-    //         } else {
-    //             alert("Backend Error: " + JSON.stringify(data));
-    //         }
-    //     } catch (error: any) {
-    //         alert("Network Error: " + error.message);
-    //     } finally {
-    //         setLoading(null);
-    //     }
-    // };
 
     return (
         <div className="min-h-[80vh] flex items-center justify-center px-4">
@@ -190,7 +176,7 @@ export default function Paywall() {
                                 disabled={loading !== null}
                                 className="w-full bg-white/[0.05] border border-white/[0.1] text-white text-sm font-medium px-6 py-3 rounded-full hover:bg-white/[0.1] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             >
-                                {loading === "standard" ? "Redirecting..." : "Get Standard"}
+                                {loading === "standard" ? "Processing..." : "Get Standard"}
                             </button>
                         </div>
                     </div>
@@ -238,7 +224,7 @@ export default function Paywall() {
                                     disabled={loading !== null}
                                     className="w-full bg-white text-black text-sm font-medium px-6 py-3 rounded-full hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
-                                    {loading === "premium" ? "Redirecting..." : "Get Premium →"}
+                                    {loading === "premium" ? "Processing..." : "Get Premium →"}
                                 </button>
                             </div>
                         </div>
