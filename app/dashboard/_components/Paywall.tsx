@@ -7,42 +7,88 @@ export default function Paywall() {
     const { user } = useUser();
     const [loading, setLoading] = useState<"trial" | "standard" | "premium" | null>(null);
 
+
+
     const handleCheckout = async (plan: "trial" | "standard" | "premium") => {
         setLoading(plan);
-
-        const priceIdMap = {
-            trial: process.env.NEXT_PUBLIC_PADDLE_TRIAL_PRICE_ID,
-            standard: process.env.NEXT_PUBLIC_PADDLE_STANDARD_PRICE_ID,
-            premium: process.env.NEXT_PUBLIC_PADDLE_PREMIUM_PRICE_ID
-        };
-
-        const priceId = priceIdMap[plan];
-
         try {
-            const res = await fetch("/api/checkout/paddle", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    priceId,
-                    clerk_user_id: user?.id,
-                    business_name: user?.firstName || "New Business",
-                    plan
-                }),
+            const priceIdMap = {
+                trial: process.env.NEXT_PUBLIC_PADDLE_TRIAL_PRICE_ID,
+                standard: process.env.NEXT_PUBLIC_PADDLE_STANDARD_PRICE_ID,
+                premium: process.env.NEXT_PUBLIC_PADDLE_PREMIUM_PRICE_ID
+            };
+
+            const res = await fetch('/api/checkout/paddle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ priceId: priceIdMap[plan], quantity: 1 })
             });
 
             const data = await res.json();
 
-            if (data.url) {
-                window.location.href = data.url;
-            } else {
-                alert("Backend Error: " + JSON.stringify(data));
+            if (!res.ok || !data.transactionId) {
+                alert("Failed to start checkout: " + JSON.stringify(data.error));
+                setLoading(null);
+                return;
             }
-        } catch (error: any) {
-            alert("Network Error: " + error.message);
+
+            (window as any).Paddle.Checkout.open({
+                transactionId: data.transactionId,
+                settings: {
+                    displayMode: "overlay",
+                    theme: "dark"
+                }
+            });
+        } catch (err) {
+            console.error("Checkout error:", err);
+            alert("Checkout error: " + err);
         } finally {
             setLoading(null);
         }
     };
+
+
+
+
+
+
+
+    // const handleCheckout = async (plan: "trial" | "standard" | "premium") => {
+    //     setLoading(plan);
+
+    //     const priceIdMap = {
+    //         trial: process.env.NEXT_PUBLIC_PADDLE_TRIAL_PRICE_ID,
+    //         standard: process.env.NEXT_PUBLIC_PADDLE_STANDARD_PRICE_ID,
+    //         premium: process.env.NEXT_PUBLIC_PADDLE_PREMIUM_PRICE_ID
+    //     };
+
+    //     const priceId = priceIdMap[plan];
+
+    //     try {
+    //         const res = await fetch("/api/checkout/paddle", {
+    //             method: "POST",
+    //             headers: { "Content-Type": "application/json" },
+    //             body: JSON.stringify({
+    //                 priceId,
+    //                 clerk_user_id: user?.id,
+    //                 business_name: user?.firstName || "New Business",
+    //                 plan
+    //             }),
+    //         });
+
+    //         const data = await res.json();
+
+    //         if (data.url) {
+    //             window.location.href = data.url;
+    //         } else {
+    //             alert("Backend Error: " + JSON.stringify(data));
+    //         }
+    //     } catch (error: any) {
+    //         alert("Network Error: " + error.message);
+    //     } finally {
+    //         setLoading(null);
+    //     }
+    // };
 
     return (
         <div className="min-h-[80vh] flex items-center justify-center px-4">

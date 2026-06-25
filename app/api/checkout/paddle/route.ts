@@ -37,8 +37,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: data.error || "Failed to create Paddle checkout" }, { status: 400 });
     }
 
-    // Fix: Paddle nests response data inside a "data" object
-    return NextResponse.json({ url: data.data?.checkout?.url });
+    // চেইঞ্জড: উন্ডো ওভারলে চালুর জন্য এখানে url এর বদলে transactionId পাঠানো হচ্ছে
+    return NextResponse.json({ transactionId: data.data?.id });
 
   } catch (error) {
     console.error("Checkout API Error:", error);
