@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    // Destructure the priceId and quantity sent from your frontend
+    const { priceId, quantity = 1 } = body; 
 
     // Call Paddle API to generate a transaction/checkout link
     // Automatically use Sandbox API if the sandbox key is present
@@ -10,19 +12,23 @@ export async function POST(request: Request) {
       ? 'https://sandbox-api.paddle.com' 
       : 'https://api.paddle.com';
       
-    // --- ADDED DEBUG LOGS HERE ---
+    // Debug logs to monitor your keys in Vercel logs
     console.log("Using API base:", paddleApiBase);
     console.log("Key prefix:", process.env.PADDLE_API_KEY?.substring(0, 10));
-    // ------------------------------
 
+    // Send the structured payload that Paddle expects
     const response = await fetch(`${paddleApiBase}/transactions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.PADDLE_API_KEY}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(body) // Ensure body is passed or adjust as per your needs
-    }); // Fixed missing closing block for fetch here
+      body: JSON.stringify({
+        items: [
+          { price_id: priceId, quantity }
+        ]
+      })
+    });
 
     const data = await response.json();
 
@@ -31,8 +37,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: data.error || "Failed to create Paddle checkout" }, { status: 400 });
     }
 
-    // Return the hosted checkout URL to the frontend
-    return NextResponse.json({ url: data.checkout.url });
+    // Fix: Paddle nests response data inside a "data" object
+    return NextResponse.json({ url: data.data?.checkout?.url });
 
   } catch (error) {
     console.error("Checkout API Error:", error);
