@@ -8,35 +8,22 @@ export default function Paywall() {
     const [loading, setLoading] = useState<"trial" | "standard" | "premium" | null>(null);
 
     useEffect(() => {
-        if (typeof window !== "undefined" && !(window as any).Paddle) {
-            const script = document.createElement("script");
-            script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
-            script.async = true;
-            script.onload = () => {
-                console.log("✅ Paddle.js script loaded successfully");
-                const Paddle = (window as any).Paddle;
-                if (Paddle) {
-                    console.log("✅ Paddle object found on window, initializing...");
-                    Paddle.Initialize({ token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN });
-                } else {
-                    console.error("❌ Script loaded but window.Paddle is undefined");
-                }
-            };
-            script.onerror = (e) => {
-                console.error("❌ FAILED TO LOAD paddle.js script:", e);
-            };
-            document.body.appendChild(script);
-        } else if ((window as any).Paddle) {
-            console.log("ℹPaddle already exists on window, skipping script injection");
-        }
+        const script = document.createElement("script");
+        script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
+        script.async = true;
+        script.onload = () => {
+            const Paddle = (window as any).Paddle;
+            if (Paddle) {
+                Paddle.Initialize({ token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN });
+                console.log("✅ Paddle initialized:", Paddle);
+            }
+        };
+        document.body.appendChild(script);
     }, []);
 
     const handleCheckout = (plan: "trial" | "standard" | "premium") => {
-
-        console.log("Button clicked, plan:", plan);
         setLoading(plan);
         const Paddle = (window as any).Paddle;
-        console.log("Paddle on window at click time:", Paddle);
 
         if (!Paddle) {
             alert("Payment system is still loading. Please wait a moment and try again.");
@@ -52,46 +39,23 @@ export default function Paywall() {
 
         const priceId = priceIdMap[plan];
 
-        console.log("PADDLE TOKEN:", process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN);
-        console.log("SELECTED PRICE ID:", priceId);
-        console.log("PADDLE OBJECT:", (window as any).Paddle);
-
         if (!priceId) {
-            alert("Pricing configuration missing for this plan. Check your .env.local file.");
+            alert("Pricing configuration missing. Check Vercel env vars.");
             setLoading(null);
             return;
         }
 
-        if (!process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN) {
-            alert("CRITICAL: Paddle Client Token is missing on the frontend! Check .env.local");
-            setLoading(null);
-            return;
-        }
-
-        try {
-            (window as any).Paddle.Checkout.open({
-                items: [{ priceId: priceId, quantity: 1 }],
-                customData: {
-                    clerk_user_id: user?.id,
-                    business_name: user?.firstName || "New Business",
-                    plan: plan
-                },
-                settings: {
-                    displayMode: "overlay",
-                    theme: "dark"
-                },
-                eventCallback: function (data: any) {
-                    console.log("PADDLE EVENT:", data);
-                    if (data.error) {
-                        console.error("🔥 PADDLE EXACT ERROR:", JSON.stringify(data.error, null, 2));
-                        alert("PADDLE EXACT ERROR: " + JSON.stringify(data.error));
-                    }
-                }
-            });
-        } catch (err) {
-            console.error("🔥 SYNCHRONOUS CRASH:", err);
-            alert("SYNCHRONOUS CRASH: " + err);
-        }
+        Paddle.Checkout.open({
+            items: [{ priceId: priceId, quantity: 1 }],
+            customData: {
+                clerk_user_id: user?.id,
+                business_name: user?.firstName || "New Business",
+                plan: plan
+            },
+            settings: {
+                successUrl: `${window.location.origin}/dashboard?paddle=success`
+            }
+        });
 
         setLoading(null);
     };

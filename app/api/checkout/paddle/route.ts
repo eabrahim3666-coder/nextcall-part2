@@ -4,15 +4,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Automatically use Sandbox API if the sandbox key is present
     const paddleApiBase = process.env.PADDLE_API_KEY?.startsWith('pdl_sdbx_') 
       ? 'https://sandbox-api.paddle.com' 
       : 'https://api.paddle.com';
-      
-    // Safely construct the URL, removing any trailing slashes to prevent invalid_url
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://nextcall-part2.vercel.app').replace(/\/$/, '');
-    const successUrl = `${appUrl}/dashboard?paddle=success`;
-      
+
     const response = await fetch(`${paddleApiBase}/transactions`, {
       method: 'POST',
       headers: {
@@ -25,9 +20,6 @@ export async function POST(request: Request) {
           clerk_user_id: body.clerk_user_id,
           business_name: body.business_name,
           plan: body.plan
-        },
-        checkout: {
-          url: successUrl
         }
       })
     });
@@ -39,10 +31,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: data.error || "Failed to create Paddle checkout" }, { status: 400 });
     }
 
-    // Return the hosted checkout URL to the frontend and set the race-condition cookie
-    const res = NextResponse.json({ url: data.data.checkout.url });
-    res.cookies.set('paddle_redirect', 'true', { path: '/', maxAge: 60 });
-    return res;
+    // Return the transaction ID — frontend opens this via Paddle.js overlay
+    return NextResponse.json({ transactionId: data.data.id });
 
   } catch (error) {
     console.error("Checkout API Error:", error);
