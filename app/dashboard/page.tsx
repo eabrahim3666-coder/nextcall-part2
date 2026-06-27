@@ -1,3 +1,4 @@
+import PaddleSuccessWaiting from "./_components/PaddleSuccessWaiting";
 import PremiumAnalytics from "./_components/PremiumAnalytics";
 import { auth } from "@clerk/nextjs/server";
 import { businessesCollection, callsCollection } from "@/lib/astra";
@@ -14,16 +15,9 @@ export default async function DashboardHome({ searchParams }: { searchParams: { 
 
     const business = await businessesCollection.findOne({ business_id: userId });
 
-    // 🚨 RACE CONDITION FIX: User just returned from Paddle, but webhook hasn't flipped DB to 'active' yet
+    // RACE CONDITION FIX: User just returned from Paddle, but webhook hasn't flipped DB to 'active' yet
     if (searchParams.paddle === 'success' && business?.status !== 'active') {
-        return (
-            <div className="min-h-[80vh] flex flex-col items-center justify-center text-center px-4">
-                <meta httpEquiv="refresh" content="3" />
-                <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-6"></div>
-                <h2 className="text-2xl font-semibold text-white tracking-tight mb-2">Preparing your AI...</h2>
-                <p className="text-sm text-neutral-400 max-w-sm">We are finalizing your subscription. Please wait a moment...</p>
-            </div>
-        );
+        return <PaddleSuccessWaiting />;
     }
 
     const calls = await callsCollection
