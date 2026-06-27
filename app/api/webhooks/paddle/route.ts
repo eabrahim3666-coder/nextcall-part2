@@ -38,6 +38,12 @@ export async function POST(request: Request) {
     hmac.update(signedPayload);
     const digest = hmac.digest('hex');
 
+    console.log("Expected:", digest);
+    console.log("Received:", h1Signature);
+    console.log("Secret prefix used:", process.env.PADDLE_WEBHOOK_SECRET?.substring(0, 12));
+
+
+
     // 4. If signature doesn't match, return 401
     if (h1Signature !== digest) {
       console.error("❌ Invalid Paddle Signature");
