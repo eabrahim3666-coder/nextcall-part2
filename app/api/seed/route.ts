@@ -3,7 +3,7 @@ import { businessesCollection } from '@/lib/astra';
 
 export async function GET() {
   try {
-    const clerkId = "user_3DaQW5FrBlSttJjEgBgnlnBYtiT"; // Your actual Clerk ID
+    const clerkId = "user_3FLA9wDM0W9dr0UFxrYg5b5UWiQ"; // Your actual Clerk ID
 
     // The exact data you provided
     const demoBusiness = {
