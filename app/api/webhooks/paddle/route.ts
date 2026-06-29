@@ -46,13 +46,13 @@ export async function POST(request: Request) {
 
     // 4. If signature doesn't match, return 401
     if (h1Signature !== digest) {
-      console.error("❌ Invalid Paddle Signature");
+      console.error("Invalid Paddle Signature");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const payload = JSON.parse(rawBody);
     const eventName = payload.event_type;
-    console.log(`✅ Paddle Webhook Received: ${eventName}`);
+    console.log(`Paddle Webhook Received: ${eventName}`);
 
     // ==========================================
     // 1. SUBSCRIPTION CREATED (New Paid User)
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
                 $set: { updated_at: new Date().toISOString() }
               }
             );
-            console.log(`🎉 ${referrer.business_name} earned 50 bonus minutes from referral!`);
+            console.log(`${referrer.business_name} earned 50 bonus minutes from referral!`);
           }
         }
 
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
               business_type: businessType,
               service_area: serviceArea,
               twilio_subaccount_sid: twilioSubAccountSid,
-              twilio_phone_number: twilioPhoneNumber,
+              twilio_number: twilioPhoneNumber,
               paddle_subscription_id: payload.data.id,
               paddle_customer_id: payload.data.customer_id,
               status: "active",
@@ -153,11 +153,11 @@ export async function POST(request: Request) {
           { upsert: true }
         );
 
-        console.log(`✅ Business ${businessName} onboarded on ${planType} plan via Paddle!`);
+        console.log(`Business ${businessName} onboarded on ${planType} plan via Paddle!`);
 
         // Direct Telegram Alert (No n8n needed)
         if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-          const teleMsg = `💰 <b>New Paid User (Paddle)</b>\n\nBusiness: <b>${businessName}</b>\nPlan: ${planType}\nPhone: ${ownerPhone}`;
+          const teleMsg = `<b>New Paid User (Paddle)</b>\n\nBusiness: <b>${businessName}</b>\nPlan: ${planType}\nPhone: ${ownerPhone}`;
           fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
         }
 
       } catch (error) {
-        console.error("❌ Error during automated onboarding:", error);
+        console.error("Error during automated onboarding:", error);
       }
     }
 

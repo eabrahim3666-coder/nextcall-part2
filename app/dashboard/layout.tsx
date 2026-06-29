@@ -22,7 +22,11 @@ export default async function DashboardLayout({
     if (!userId) redirect("/");
 
     const user = await currentUser();
-    const business = await businessesCollection.findOne({ business_id: userId });
+
+    // Bulletproof AstraDB Lookup (Bypasses indexing bugs)
+    const allBusinesses = await businessesCollection.find({ business_id: { $exists: true } }).toArray();
+    const business = allBusinesses.find(b => String(b.business_id) === userId);
+
     const isActiveBusiness = business && business.status === "active";
     const isAIActive = isActiveBusiness && Number(business?.total_minutes_used || 0) < Number(business?.minutes_limit || 200);
 
