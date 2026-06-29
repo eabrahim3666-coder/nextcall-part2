@@ -26,12 +26,6 @@ export default async function DashboardLayout({
     // Bulletproof AstraDB Lookup (Bypasses indexing bugs)
     const allBusinesses = await businessesCollection.find({ business_id: { $exists: true } }).toArray();
     const business = allBusinesses.find(b => String(b.business_id) === userId);
-
-    // 🚨 DEBUG BOMB: Let's see what the DB is actually doing
-    console.log("BUG DEBUG -> User ID:", userId);
-    console.log("BUG DEBUG -> Total Businesses Found:", allBusinesses.length);
-    console.log("BUG DEBUG -> Matched Business:", business ? JSON.stringify(business) : "NULL");
-
     const isActiveBusiness = business && business.status === "active";
 
 
