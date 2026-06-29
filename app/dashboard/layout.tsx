@@ -27,7 +27,14 @@ export default async function DashboardLayout({
     const allBusinesses = await businessesCollection.find({ business_id: { $exists: true } }).toArray();
     const business = allBusinesses.find(b => String(b.business_id) === userId);
 
+    // 🚨 DEBUG BOMB: Let's see what the DB is actually doing
+    console.log("BUG DEBUG -> User ID:", userId);
+    console.log("BUG DEBUG -> Total Businesses Found:", allBusinesses.length);
+    console.log("BUG DEBUG -> Matched Business:", business ? JSON.stringify(business) : "NULL");
+
     const isActiveBusiness = business && business.status === "active";
+
+
     const isAIActive = isActiveBusiness && Number(business?.total_minutes_used || 0) < Number(business?.minutes_limit || 200);
 
     // 🚨 RACE CONDITION FIX: Check if user just returned from Paddle
