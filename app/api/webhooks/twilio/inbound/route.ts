@@ -79,8 +79,9 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'text/xml' },
     });
 
-  } catch (error) {
-    console.error("Error handling inbound call:", error);
+  } catch (error: any) {
+    // Log the exact error Retell or Twilio is throwing
+    console.error("EXACT INBOUND ERROR:", error?.response?.data || error?.message || error);
     const errorTwiml = `<Response><Say>An error occurred. Please try again.</Say></Response>`;
     return new NextResponse(errorTwiml, {
       headers: { 'Content-Type': 'text/xml' },
