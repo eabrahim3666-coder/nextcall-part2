@@ -27,6 +27,8 @@ export default function NotificationBell() {
     const [open, setOpen] = useState(false);
     const [now, setNow] = useState(0);
 
+    const [selected, setSelected] = useState<Notification | null>(null);
+
     const fetchNotifications = async () => {
         try {
             const res = await fetch("/api/notifications");
@@ -135,7 +137,8 @@ export default function NotificationBell() {
                                 return (
                                     <div
                                         key={n._id}
-                                        className={`p-4 border-b border-white/[0.04] ${!n.read ? "bg-white/[0.02]" : ""}`}
+                                        onClick={() => setSelected(n)}
+                                        className={`p-4 border-b border-white/[0.04] cursor-pointer transition-colors hover:bg-white/[0.04] ${!n.read ? "bg-white/[0.02]" : ""}`}
                                     >
                                         <div className="flex items-start gap-3">
                                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${style.badge} flex-shrink-0 mt-0.5`}>{style.badgeText}</span>
@@ -151,6 +154,39 @@ export default function NotificationBell() {
                                 );
                             })
                         )}
+                    </div>
+                </div>
+            )}
+
+            {selected && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => setSelected(null)}>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+                            <div className="flex items-center gap-3">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${(TYPE_STYLES[selected.type] || { badge: "bg-neutral-500/20 text-neutral-300" }).badge}`}>
+                                    {(TYPE_STYLES[selected.type] || { badgeText: "INFO" }).badgeText}
+                                </span>
+                                <h3 className="text-sm font-semibold text-white">{selected.title}</h3>
+                            </div>
+                            <button onClick={() => setSelected(null)} className="text-neutral-500 hover:text-white transition-colors">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="p-5">
+                            <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">{selected.message}</p>
+                            <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-neutral-600">
+                                <span>{new Date(selected.created_at).toLocaleString()}</span>
+                                <span>{selected.read ? "Read" : "Unread"}</span>
+                            </div>
+                        </div>
+                        <div className="px-5 pb-5">
+                            <button onClick={() => setSelected(null)} className="w-full text-center text-xs font-medium text-white bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 rounded-xl hover:bg-white/[0.1] transition-colors">
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
